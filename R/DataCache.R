@@ -55,7 +55,7 @@ data.cache <- function(FUN,
 	if(missing(FUN)) {
 		stop('FUN is missing! This parameter defines a function to load data.')
 	}
-	
+		
 	cache.date <- Sys.time()
 	return.date <- cache.date
 	if(!file.exists(cache.dir)) {
@@ -65,56 +65,61 @@ data.cache <- function(FUN,
 	cinfo <- cache.info(cache.dir=cache.dir, cache.name=cache.name, stale=NULL)
 	new.cache.file <- paste0(cache.dir, '/', cache.name, format(cache.date, format='%Y%m%d-%H%M%S'), '.rda')
 	
-	if(nrow(cinfo) > 0 & Sys.info()['sysname'] != 'Windows' & !wait) {
-		if(frequency(cinfo[1,]$created)) { # Check to see if the cache is stale
-			lock.file <- paste0(cache.dir, '/', cache.name, '.lck')
-			if(!file.exists(lock.file)) {
-				now <- Sys.time()
-				save(now, file=lock.file)
-				# This is a bit of hack. Not sure when the estranged parameter was added
-# 				params <- formals(parallel:::mcfork)
-# 				if('estranged' %in% names(params)) {
-					p <- parallel:::mcfork(estranged=TRUE)	
-# 				} else {
-# 					p <- parallel:::mcfork()
-# 				}
-# 				p <- mcfork(estranged=TRUE) # Using interal copy of function
-				if(inherits(p, "masterProcess")) {
-					sink(file=paste0(cache.dir, '/', cache.name, format(cache.date, format='%Y%m%d-%H%M%S'), '.log'), append=TRUE)
-					print(paste0('Loading data at ', Sys.time()))
-					tryCatch({
-							thedata <- FUN(...)
-							if(class(thedata) == 'list') {
-								save(list=ls(thedata), envir=as.environment(thedata), 
-									 file=new.cache.file)
-							} else {
-								save(thedata, file=new.cache.file)
-							}							
-							sink()
-						},
-						error = function(e) {
-							print(e)
-						},
-						finally = {
-							unlink(lock.file)
-							parallel:::mcexit()
-#							mcexit() # Using interal copy of of function
-						}
-					)
-					invisible(new.cache.file)
-				}
-			} else {
-				finfo <- file.info(lock.file)
-				message(paste0('Data is being loaded by another process. ',
-							   'The process has been running for ',
-							   difftime(Sys.time(), finfo$ctime, units='secs'),
-							   ' seconds. If this is an error delete ', lock.file))
+	
+	if(nrow(cinfo) > 0 && !frequency(cinfo[1,]$created)) {
+		# Cached data, not stale
+		load(paste0(cache.dir, '/', cinfo[1, 'file']), envir=envir)			
+		return.date <- cinfo[1,]$created	
+	} else if (nrow(cinfo) > 0 && Sys.info()['sysname'] != 'Windows' && !wait) {
+		# Stale cache (load asynchronously)
+		lock.file <- paste0(cache.dir, '/', cache.name, '.lck')
+		if(!file.exists(lock.file)) {
+			now <- Sys.time()
+			save(now, file=lock.file)
+			# This is a bit of hack. Not sure when the estranged parameter was added
+# 			params <- formals(parallel:::mcfork)
+# 			if('estranged' %in% names(params)) {
+				p <- parallel:::mcfork(estranged=TRUE)	
+# 			} else {
+# 				p <- parallel:::mcfork()
+# 			}
+# 			p <- mcfork(estranged=TRUE) # Using interal copy of function
+			if(inherits(p, "masterProcess")) {
+				sink(file=paste0(cache.dir, '/', cache.name, format(cache.date, format='%Y%m%d-%H%M%S'), '.log'), append=TRUE)
+				print(paste0('Loading data at ', Sys.time()))
+				tryCatch({
+						thedata <- FUN(...)
+						if(class(thedata) == 'list') {
+							save(list=ls(thedata), envir=as.environment(thedata), 
+								 file=new.cache.file)
+						} else {
+							save(thedata, file=new.cache.file)
+						}							
+						sink()
+					},
+					error = function(e) {
+						print(e)
+					},
+					finally = {
+						unlink(lock.file)
+						parallel:::mcexit()
+#						mcexit() # Using interal copy of of function
+					}
+				)
+				invisible(new.cache.file)
 			}
-			message('Loading more recent data, returning lastest available.')
+		} else {
+			finfo <- file.info(lock.file)
+			message(paste0('Data is being loaded by another process. ',
+						   'The process has been running for ',
+						   difftime(Sys.time(), finfo$ctime, units='secs'),
+						   ' seconds. If this is an error delete ', lock.file))
 		}
+		message('Loading more recent data, returning lastest available.')
 		load(paste0(cache.dir, '/', cinfo[1,]$file), envir=envir)
 		return.date <- cinfo[1,]$created
 	} else {
+		# No or stale cache (load synchronously)
 		if(Sys.info()['sysname'] == 'Windows' & nrow(cinfo) == 0) {
 			message('Background processing is not supported on Windows. Loading new data...')
 		} else if(wait) {
