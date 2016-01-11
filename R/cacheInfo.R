@@ -24,8 +24,9 @@ cache.info <- function(cache.dir='cache', cache.name='Cache', units='mins',
 			timestamps <- substr(cache.files, 
 								 nchar(cache.name) + 1,
 								 sapply(cache.files, nchar) - 4)
+			timestamps <- as.POSIXct(timestamps, format='%Y%m%d-%H%M%S')
 			results <- data.frame(file=cache.files,
-								  created=as.POSIXct(timestamps),
+								  created=timestamps,
 								  age=as.numeric(difftime(Sys.time(), timestamps, units=units)))
 			names(results)[3] <- paste0('age_', units)
 			if(!is.null(stale)) {

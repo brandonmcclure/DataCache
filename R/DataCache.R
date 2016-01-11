@@ -63,7 +63,7 @@ data.cache <- function(FUN,
 		cache.dir <- normalizePath(cache.dir)
 	}
 	cinfo <- cache.info(cache.dir=cache.dir, cache.name=cache.name, stale=NULL)
-	new.cache.file <- paste0(cache.dir, '/', cache.name, cache.date, '.rda')
+	new.cache.file <- paste0(cache.dir, '/', cache.name, format(cache.date, format='%Y%m%d-%H%M%S'), '.rda')
 	
 	if(nrow(cinfo) > 0 & Sys.info()['sysname'] != 'Windows' & !wait) {
 		if(frequency(cinfo[1,]$created)) { # Check to see if the cache is stale
@@ -80,7 +80,7 @@ data.cache <- function(FUN,
 # 				}
 # 				p <- mcfork(estranged=TRUE) # Using interal copy of function
 				if(inherits(p, "masterProcess")) {
-					sink(file=paste0(cache.dir, '/', cache.name, cache.date, '.log'), append=TRUE)
+					sink(file=paste0(cache.dir, '/', cache.name, format(cache.date, format='%Y%m%d-%H%M%S'), '.log'), append=TRUE)
 					print(paste0('Loading data at ', Sys.time()))
 					tryCatch({
 							thedata <- FUN(...)
@@ -122,7 +122,7 @@ data.cache <- function(FUN,
 		} else {
 			message('No cached data found. Loading intial data...')
 		}
-		sink(file=paste0(cache.dir, '/', cache.name, cache.date, '.log'), append=TRUE)
+		sink(file=paste0(cache.dir, '/', cache.name, format(cache.date, format='%Y%m%d-%H%M%S'), '.log'), append=TRUE)
 		print(paste0('Loading data at ', Sys.time()))
 		thedata <- FUN(...)
 		if(class(thedata) == 'list') {
