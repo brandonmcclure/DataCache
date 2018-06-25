@@ -6,3 +6,4 @@ r_packages:
   - knitr
   - lubridate
   - parallel
+  - weatherData
